@@ -1,5 +1,8 @@
 // Service Worker — מאפשר שימוש מלא באפליקציה גם ללא קליטה/אינטרנט (חשוב מאוד במידברן).
-const CACHE_NAME = 'techshifts26-v1';
+const CACHE_NAME = 'techshifts26-v2';
+// Files that change with app updates — always check the network first so
+// visitors get the latest version while online; fall back to cache offline.
+const NETWORK_FIRST = ['./index.html', './style.css', './app.js'];
 const CORE_ASSETS = [
   './',
   './index.html',
@@ -28,9 +31,10 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Navigation requests: try network first so users get updates when online,
-// fall back to the cached app shell when offline (no signal at the event).
-// Everything else same-origin: cache-first, refresh cache in the background.
+// index.html/style.css/app.js: try network first so visitors always get the
+// latest version while online; fall back to cache when offline (no signal
+// at the event). Everything else same-origin (icons, manifest): cache-first,
+// refreshed in the background — they barely ever change, so speed wins.
 self.addEventListener('fetch', (event) => {
   const req = event.request;
   if (req.method !== 'GET') return;
@@ -38,14 +42,18 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(req.url);
   if (url.origin !== location.origin) return; // let cross-origin (fonts) pass through normally
 
-  if (req.mode === 'navigate') {
+  const isNetworkFirst = req.mode === 'navigate' ||
+    NETWORK_FIRST.some((p) => url.pathname.endsWith(p.slice(1)));
+
+  if (isNetworkFirst) {
+    const cacheKey = req.mode === 'navigate' ? './index.html' : req;
     event.respondWith(
       fetch(req)
         .then((res) => {
-          caches.open(CACHE_NAME).then((cache) => cache.put('./index.html', res.clone()));
+          caches.open(CACHE_NAME).then((cache) => cache.put(cacheKey, res.clone()));
           return res;
         })
-        .catch(() => caches.match('./index.html'))
+        .catch(() => caches.match(cacheKey))
     );
     return;
   }
