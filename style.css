@@ -140,13 +140,15 @@ main{padding:18px;max-width:1600px;margin:0 auto}
 .chip .ci{font-size:.8rem}
 .chip .cv{font-weight:600;color:var(--text)}
 
-/* ══ CONFIRM CHECKBOX ════════════════════════════════ */
-.confirm-row{border-top:1.5px dashed var(--border);padding-top:8px}
+/* ══ CONFIRM CHECKBOX (inline, next to each name) ═════ */
+.slot-confirm{margin-top:8px}
 .confirm-cb-wrap{
   display:flex;align-items:center;gap:10px;cursor:pointer;
   padding:7px 9px;border-radius:9px;transition:background .15s;user-select:none
 }
 .confirm-cb-wrap:hover{background:#f0ede6}
+.confirm-cb-wrap.disabled{cursor:not-allowed;opacity:.4}
+.confirm-cb-wrap.disabled:hover{background:none}
 .confirm-box{
   width:28px;height:28px;flex-shrink:0;border-radius:7px;
   border:2px solid var(--border);background:#fff;

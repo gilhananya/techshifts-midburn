@@ -217,40 +217,23 @@ function buildShiftCard(shift, sKey, ns){
   card.appendChild(hdr);
   // body
   const body = el('div','shift-body');
-  body.appendChild(buildSlot(ns, sKey, 1, saved.n1||''));
+  body.appendChild(buildSlot(ns, sKey, 1, saved.n1||'', !!saved.approved1));
   // second slot only on setup board
-  if(ns === 'setup') body.appendChild(buildSlot(ns, sKey, 2, saved.n2||''));
-  // confirm checkbox (always editable — self-reporting)
-  const confirmRow = el('div','confirm-row');
-  const isChecked = !!saved.approved;
-  const cbWrap = el('div','confirm-cb-wrap');
-  const box = el('div', `confirm-box${isChecked?' checked':''}`);
-  box.textContent = isChecked ? '✓' : '';
-  const txt = el('span', `confirm-text${isChecked?' checked':''}`);
-  txt.textContent = 'אישרתי — נכנס/ת לאבק! 🔥';
-  cbWrap.appendChild(box); cbWrap.appendChild(txt);
-  cbWrap.addEventListener('click',()=>{
-    const nowChecked = !box.classList.contains('checked');
-    box.classList.toggle('checked', nowChecked);
-    txt.classList.toggle('checked', nowChecked);
-    box.textContent = nowChecked ? '✓' : '';
-    ensureKey(ns,sKey); S[ns][sKey].approved = nowChecked; persist();
-    updateOfflineUI();
-  });
-  confirmRow.appendChild(cbWrap);
-  body.appendChild(confirmRow);
+  if(ns === 'setup') body.appendChild(buildSlot(ns, sKey, 2, saved.n2||'', !!saved.approved2));
   card.appendChild(body);
   return card;
 }
 
-function buildSlot(ns, sKey, num, savedName){
+function buildSlot(ns, sKey, num, savedName, savedApproved){
+  const approvedKey = num===1 ? 'approved1' : 'approved2';
+  const nameKey = num===1 ? 'n1' : 'n2';
   const slot = el('div','slot');
   const lbl = el('div','slot-label');
   lbl.textContent = num===1 ? 'משובצ/ת' : 'משובצ/ת נוסף/ת';
   slot.appendChild(lbl);
 
-  // Permission: locked if filled and not admin
-  const isLocked = !isAdmin && !!savedName;
+  // Permission: locked only once the person has confirmed it's final (or admin unlocked it)
+  let isLocked = !isAdmin && !!savedName && savedApproved;
 
   const sel = el('select','name-sel');
   if(savedName) sel.classList.add('filled');
@@ -267,10 +250,21 @@ function buildSlot(ns, sKey, num, savedName){
   });
   slot.appendChild(sel);
 
-  if(isLocked){
-    const ln = el('div','lock-note'); ln.textContent='🔒 נעול · לשינוי פנה/י לממונה/ת';
-    slot.appendChild(ln);
-  }
+  const lockNote = el('div','lock-note');
+  lockNote.textContent = '🔒 נעול · לשינוי פנה/י לממונה/ת';
+  lockNote.style.display = isLocked ? '' : 'none';
+  slot.appendChild(lockNote);
+
+  // inline confirm — checking it is what locks the slot in
+  const confirmRow = el('div','slot-confirm');
+  const cbWrap = el('div',`confirm-cb-wrap${(!savedName)?' disabled':''}`);
+  const box = el('div', `confirm-box${savedApproved?' checked':''}`);
+  box.textContent = savedApproved ? '✓' : '';
+  const txt = el('span', `confirm-text${savedApproved?' checked':''}`);
+  txt.textContent = 'אישרתי — נכנס/ת לאבק! 🔥';
+  cbWrap.appendChild(box); cbWrap.appendChild(txt);
+  confirmRow.appendChild(cbWrap);
+  slot.appendChild(confirmRow);
 
   // auto-info chips
   const info = el('div','auto-info');
@@ -286,6 +280,21 @@ function buildSlot(ns, sKey, num, savedName){
     info.classList.add('show');
   }
 
+  cbWrap.addEventListener('click',()=>{
+    if(isLocked || !sel.value) return;
+    const nowChecked = !box.classList.contains('checked');
+    box.classList.toggle('checked', nowChecked);
+    txt.classList.toggle('checked', nowChecked);
+    box.textContent = nowChecked ? '✓' : '';
+    ensureKey(ns,sKey); S[ns][sKey][approvedKey] = nowChecked; persist();
+    updateOfflineUI();
+    if(!isAdmin && nowChecked){
+      isLocked = true;
+      sel.disabled = true;
+      lockNote.style.display = '';
+    }
+  });
+
   if(!isLocked){
     sel.addEventListener('change',()=>{
       const name = sel.value;
@@ -297,17 +306,12 @@ function buildSlot(ns, sKey, num, savedName){
       } else {
         info.classList.remove('show'); sel.classList.remove('filled');
       }
+      cbWrap.classList.toggle('disabled', !name);
       ensureKey(ns,sKey);
-      S[ns][sKey][num===1?'n1':'n2'] = name;
+      S[ns][sKey][nameKey] = name;
       persist();
       renderStats(ns);
       updateOfflineUI();
-      // lock after save if not admin
-      if(!isAdmin && name){
-        sel.disabled=true;
-        const ln=el('div','lock-note'); ln.textContent='🔒 נעול · לשינוי פנה/י לממונה/ת';
-        slot.appendChild(ln);
-      }
     });
   }
   return slot;
@@ -426,9 +430,9 @@ function buildCalendar(ns){
         const saved=S.regular[sKey]||{};
         const cell=el('div',`cal-cell ${bgMap[shift.key]||''}`);
         if(saved.n1){
-          const c=el('div',`cal-chip${saved.approved?' confirmed':''}`);
+          const c=el('div',`cal-chip${saved.approved1?' confirmed':''}`);
           const nameLine=el('div','cal-chip-name');
-          nameLine.textContent=saved.n1+(saved.approved?' ✓':'');
+          nameLine.textContent=saved.n1+(saved.approved1?' ✓':'');
           c.appendChild(nameLine);
           const person=PEOPLE.find(x=>x.name===saved.n1);
           if(person){
@@ -487,9 +491,10 @@ function buildCalendar(ns){
         ['n1','n2'].forEach(nk=>{
           if(saved[nk]){
             filled=true;
-            const c=el('div',`cal-chip${saved.approved?' confirmed':''}`);
+            const apKey = nk==='n1' ? 'approved1' : 'approved2';
+            const c=el('div',`cal-chip${saved[apKey]?' confirmed':''}`);
             const nameLine=el('div','cal-chip-name');
-            nameLine.textContent=saved[nk]+(saved.approved?' ✓':'');
+            nameLine.textContent=saved[nk]+(saved[apKey]?' ✓':'');
             c.appendChild(nameLine);
             const person=PEOPLE.find(x=>x.name===saved[nk]);
             if(person){
@@ -532,13 +537,13 @@ function isScheduleComplete(){
   for(let di=0; di<REGULAR_DAYS.length; di++){
     for(let si=0; si<REGULAR_SHIFTS.length; si++){
       const saved = S.regular[`r_${di}_${si}`];
-      if(!saved || !saved.n1 || !saved.approved) return false;
+      if(!saved || !saved.n1 || !saved.approved1) return false;
     }
   }
   for(let di=0; di<SETUP_DAYS.length; di++){
     for(const shift of SETUP_DAYS[di].shifts){
       const saved = S.setup[`s_${di}_${shift.key}`];
-      if(!saved || !saved.n1 || !saved.approved) return false;
+      if(!saved || !saved.n1 || !saved.approved1) return false;
     }
   }
   return true;
@@ -567,7 +572,7 @@ function buildOfflineHTML(){
       const saved = S.regular[`r_${di}_${si}`] || {};
       if(!saved.n1) return '<td class="empty">—</td>';
       const {phone,camp} = personRow(saved.n1);
-      return `<td><div class="name">${esc(saved.n1)}${saved.approved?' ✓':''}</div><div class="detail">${esc(phone)} · ${esc(camp)}</div></td>`;
+      return `<td><div class="name">${esc(saved.n1)}${saved.approved1?' ✓':''}</div><div class="detail">${esc(phone)} · ${esc(camp)}</div></td>`;
     }).join('');
     return `<tr><th>${shift.icon} ${esc(shift.label)}<br><span class="time">${esc(shift.time)}</span></th>${cells}</tr>`;
   }).join('');
@@ -583,7 +588,8 @@ function buildOfflineHTML(){
       const saved = S.setup[`s_${di}_${shDef.key}`] || {};
       const names = ['n1','n2'].filter(k=>saved[k]).map(k=>{
         const {phone,camp} = personRow(saved[k]);
-        return `<div class="name">${esc(saved[k])}${saved.approved?' ✓':''}</div><div class="detail">${esc(phone)} · ${esc(camp)}</div>`;
+        const apKey = k==='n1' ? 'approved1' : 'approved2';
+        return `<div class="name">${esc(saved[k])}${saved[apKey]?' ✓':''}</div><div class="detail">${esc(phone)} · ${esc(camp)}</div>`;
       }).join('');
       return names ? `<td>${names}</td>` : '<td class="empty">—</td>';
     }).join('');
