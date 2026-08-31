@@ -97,6 +97,33 @@ function persist(){
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// LIVE SYNC (Firebase) — cross-device updates.
+// localStorage stays the offline-first source of truth for rendering;
+// Firebase is a best-effort sync layer on top of it. If it never connects
+// (offline, blocked, etc.) the app just behaves exactly as before.
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+let fb = null;
+window.addEventListener('techshifts-fb-ready', (e) => {
+  fb = e.detail;
+  fb.onValue(fb.stateRef, (snap) => {
+    const remote = snap.val();
+    if (remote) {
+      S = remote;
+      persist();
+      buildAll();
+    } else {
+      // first ever run — seed the shared database from whatever we have locally
+      fb.set(fb.stateRef, S).catch(()=>{});
+    }
+  });
+});
+
+function fbWrite(path, value){
+  if (!fb) return; // not connected — local write above already covers this device
+  fb.set(fb.ref(fb.db, 'state/' + path), value).catch((err)=>console.warn('sync write failed', err));
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // ADMIN
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 function openAdminModal(){
@@ -287,6 +314,7 @@ function buildSlot(ns, sKey, num, savedName, savedApproved){
     txt.classList.toggle('checked', nowChecked);
     box.textContent = nowChecked ? '✓' : '';
     ensureKey(ns,sKey); S[ns][sKey][approvedKey] = nowChecked; persist();
+    fbWrite(`${ns}/${sKey}/${approvedKey}`, nowChecked);
     updateOfflineUI();
     if(!isAdmin && nowChecked){
       isLocked = true;
@@ -310,6 +338,7 @@ function buildSlot(ns, sKey, num, savedName, savedApproved){
       ensureKey(ns,sKey);
       S[ns][sKey][nameKey] = name;
       persist();
+      fbWrite(`${ns}/${sKey}/${nameKey}`, name);
       renderStats(ns);
       updateOfflineUI();
     });
@@ -388,6 +417,7 @@ function clearAll(){
   if(!isAdmin) return;
   if(!confirm('למחוק את כל שיבוצי האבק? פעולה זו בלתי הפיכה.')) return;
   S={regular:{},setup:{}}; persist(); buildAll();
+  if(fb) fb.set(fb.stateRef, S).catch(()=>{});
 }
 function switchTab(tab,btn){
   document.querySelectorAll('.board').forEach(b=>b.classList.remove('active'));

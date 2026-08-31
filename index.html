@@ -125,6 +125,35 @@
   </div>
 </main>
 
+<!-- ══ FIREBASE SYNC (cross-device live updates) ══════ -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
+  import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js";
+  import { getDatabase, ref, onValue, set } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-database.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyBdu6efs1qYyc7gDK2BQg8vvghzLOfxyi4",
+    authDomain: "techshifts-midburn-18240.firebaseapp.com",
+    databaseURL: "https://techshifts-midburn-18240-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "techshifts-midburn-18240",
+    storageBucket: "techshifts-midburn-18240.firebasestorage.app",
+    messagingSenderId: "405620620243",
+    appId: "1:405620620243:web:874d9e32e865f6f3500d26"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getDatabase(app);
+
+  signInAnonymously(auth).then(() => {
+    window.dispatchEvent(new CustomEvent('techshifts-fb-ready', {
+      detail: { db, ref, onValue, set, stateRef: ref(db, 'state') }
+    }));
+  }).catch((err) => {
+    console.warn('Firebase sign-in failed — continuing in local-only mode', err);
+  });
+</script>
+
 <script src="app.js"></script>
 
 </body>
