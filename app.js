@@ -336,6 +336,14 @@ function buildSlot(ns, sKey, num, savedName, savedApproved){
       cbWrap.classList.toggle('disabled', !name);
       ensureKey(ns,sKey);
       S[ns][sKey][nameKey] = name;
+      // a confirmation belongs to whoever was in the slot — changing the name
+      // (e.g. an admin editing an already-confirmed slot) resets it
+      if(S[ns][sKey][approvedKey]){
+        S[ns][sKey][approvedKey] = false;
+        box.classList.remove('checked'); box.textContent = '';
+        txt.classList.remove('checked');
+        fbWrite(`${ns}/${sKey}/${approvedKey}`, false);
+      }
       persist();
       fbWrite(`${ns}/${sKey}/${nameKey}`, name);
       renderStats(ns);
