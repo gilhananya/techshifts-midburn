@@ -103,8 +103,15 @@ function persist(){
 // (offline, blocked, etc.) the app just behaves exactly as before.
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 let fb = null;
+// Writes made before Firebase connects (or while offline) queue here and get
+// flushed the moment we connect — BEFORE we start accepting remote snapshots,
+// so a fresh local edit can't be silently wiped by an older remote value.
+let pendingSyncs = [];
+
 window.addEventListener('techshifts-fb-ready', (e) => {
   fb = e.detail;
+  const queued = pendingSyncs; pendingSyncs = [];
+  queued.forEach(fn => fn());
   fb.onValue(fb.stateRef, (snap) => {
     const remote = snap.val();
     // Firebase drops empty objects entirely — an empty/cleared database and a
@@ -118,8 +125,29 @@ window.addEventListener('techshifts-fb-ready', (e) => {
 });
 
 function fbWrite(path, value){
-  if (!fb) return; // not connected — local write above already covers this device
+  if (!fb) { pendingSyncs.push(()=>fbWrite(path, value)); return; }
   fb.set(fb.ref(fb.db, 'state/' + path), value).catch((err)=>console.warn('sync write failed', err));
+}
+
+// Claims a name into a slot via a transaction on the whole shift entry, so the
+// name + approval-reset land atomically and two people can't silently steal a
+// slot from each other: if someone else already changed it since `prevName`
+// was last seen, the transaction aborts (unless isAdmin, which always wins).
+function fbClaimName(ns, sKey, nameKey, approvedKey, prevName, newName){
+  if (!fb) { pendingSyncs.push(()=>fbClaimName(ns, sKey, nameKey, approvedKey, prevName, newName)); return; }
+  const shiftRef = fb.ref(fb.db, `state/${ns}/${sKey}`);
+  fb.runTransaction(shiftRef, (current) => {
+    current = current || {};
+    const currentName = current[nameKey] || '';
+    if (!isAdmin && currentName && currentName !== prevName) return; // someone else already claimed it — abort
+    return {...current, [nameKey]: newName, [approvedKey]: false};
+  }).then((result) => {
+    if (!result.committed) return;
+    const finalName = (result.snapshot.val() || {})[nameKey] || '';
+    if (finalName !== newName) {
+      alert(`המשמרת הזו כבר נתפסה בינתיים ע"י ${finalName || 'מישהו אחר'} — הבחירה שלך בוטלה, אנא בחר/י משמרת אחרת.`);
+    }
+  }).catch((err)=>console.warn('sync claim failed', err));
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -189,7 +217,6 @@ function buildAll(){
   renderStats('setup');
   buildDots('regular', REGULAR_DAYS.length);
   buildDots('setup', SETUP_DAYS.length);
-  initScrollDots();
   // refresh calendar if currently visible
   ['regular','setup'].forEach(ns=>{
     const cv=document.getElementById(`${ns}-cal-view`);
@@ -325,6 +352,7 @@ function buildSlot(ns, sKey, num, savedName, savedApproved){
   if(!isLocked){
     sel.addEventListener('change',()=>{
       const name = sel.value;
+      const prevName = S[ns]?.[sKey]?.[nameKey] || '';
       const person = PEOPLE.find(x=>x.name===name);
       if(person){
         phoneChip.querySelector('.cv').textContent = person.phone;
@@ -342,10 +370,11 @@ function buildSlot(ns, sKey, num, savedName, savedApproved){
         S[ns][sKey][approvedKey] = false;
         box.classList.remove('checked'); box.textContent = '';
         txt.classList.remove('checked');
-        fbWrite(`${ns}/${sKey}/${approvedKey}`, false);
       }
       persist();
-      fbWrite(`${ns}/${sKey}/${nameKey}`, name);
+      // name+approval-reset land together via a transaction, atomically — and
+      // for non-admins it aborts if someone else already claimed this slot
+      fbClaimName(ns, sKey, nameKey, approvedKey, prevName, name);
       renderStats(ns);
       updateOfflineUI();
     });
@@ -418,7 +447,12 @@ function clearAll(){
   if(!isAdmin) return;
   if(!confirm('למחוק את כל שיבוצי האבק? פעולה זו בלתי הפיכה.')) return;
   S={regular:{},setup:{}}; persist(); buildAll();
-  if(fb) fb.set(fb.stateRef, S).catch(()=>{});
+  if(fb){
+    fb.set(fb.stateRef, S).catch((err)=>{
+      console.warn('clear all sync failed', err);
+      alert('הניקוי בוצע במכשיר הזה, אבל הסנכרון לענן נכשל — ייתכן שהוא לא יישמר במכשירים אחרים. בדוק/י חיבור לאינטרנט ונסה/י שוב.');
+    });
+  }
 }
 function switchTab(tab,btn){
   document.querySelectorAll('.board').forEach(b=>b.classList.remove('active'));
@@ -691,6 +725,9 @@ function el(tag,cls){ const e=document.createElement(tag); e.className=cls; retu
 loadState();
 updateAdminUI();
 buildAll();
+// the scroll containers are persistent DOM nodes (only their contents get
+// rebuilt), so this only needs to run once — not on every buildAll()
+initScrollDots();
 
 if('serviceWorker' in navigator && (location.protocol==='https:' || location.hostname==='localhost')){
   window.addEventListener('load', ()=>{

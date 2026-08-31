@@ -128,7 +128,7 @@
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
   import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js";
-  import { getDatabase, ref, onValue, set } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-database.js";
+  import { getDatabase, ref, onValue, set, runTransaction } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-database.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyBdu6efs1qYyc7gDK2BQg8vvghzLOfxyi4",
@@ -146,7 +146,7 @@
 
   signInAnonymously(auth).then(() => {
     window.dispatchEvent(new CustomEvent('techshifts-fb-ready', {
-      detail: { db, ref, onValue, set, stateRef: ref(db, 'state') }
+      detail: { db, ref, onValue, set, runTransaction, stateRef: ref(db, 'state') }
     }));
   }).catch((err) => {
     console.warn('Firebase sign-in failed — continuing in local-only mode', err);
