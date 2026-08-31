@@ -414,12 +414,6 @@ function renderStats(ns){
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // ACTIONS
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-function saveData(){
-  persist();
-  const btn=document.getElementById('saveBtn');
-  btn.textContent='✅ נשמר!'; btn.classList.add('success');
-  setTimeout(()=>{ btn.textContent='💾 שמור'; btn.classList.remove('success'); },1800);
-}
 function clearAll(){
   if(!isAdmin) return;
   if(!confirm('למחוק את כל שיבוצי האבק? פעולה זו בלתי הפיכה.')) return;
