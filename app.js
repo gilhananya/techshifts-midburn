@@ -107,14 +107,13 @@ window.addEventListener('techshifts-fb-ready', (e) => {
   fb = e.detail;
   fb.onValue(fb.stateRef, (snap) => {
     const remote = snap.val();
-    if (remote) {
-      S = remote;
-      persist();
-      buildAll();
-    } else {
-      // first ever run — seed the shared database from whatever we have locally
-      fb.set(fb.stateRef, S).catch(()=>{});
-    }
+    // Firebase drops empty objects entirely — an empty/cleared database and a
+    // branch nobody has touched yet (e.g. "setup") both come back missing, not
+    // as {}. Always resync to the remote value (defaulting missing branches to
+    // {}) so every connected device reflects reality, including a Clear All.
+    S = {regular: (remote && remote.regular) || {}, setup: (remote && remote.setup) || {}};
+    persist();
+    buildAll();
   });
 });
 
