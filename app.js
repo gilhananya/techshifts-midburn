@@ -142,7 +142,8 @@ function fbClaimName(ns, sKey, nameKey, approvedKey, prevName, newName){
     if (!isAdmin && currentName && currentName !== prevName) return; // someone else already claimed it — abort
     return {...current, [nameKey]: newName, [approvedKey]: false};
   }).then((result) => {
-    if (!result.committed) return;
+    if (result.committed) return; // we won the claim — the local UI already reflects it
+    // we lost the race — someone else's name is now on this slot; tell the user
     const finalName = (result.snapshot.val() || {})[nameKey] || '';
     if (finalName !== newName) {
       alert(`המשמרת הזו כבר נתפסה בינתיים ע"י ${finalName || 'מישהו אחר'} — הבחירה שלך בוטלה, אנא בחר/י משמרת אחרת.`);
