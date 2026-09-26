@@ -77,7 +77,7 @@ const SETUP_DAYS = [
   {
     label:'יום שני', date:'2.11',
     shifts:[
-      {key:'b',label:'ערב הקמות', time:'15:00 – 00:00 (חצות)', icon:'🌙',cls:'setup2'}
+      {key:'b',label:'ערב הקמות', time:'15:00 – 00:00 (חצות)', icon:'🌙',cls:'setup2', twoSlots:true}
     ]
   },
 ];
@@ -272,8 +272,8 @@ function buildShiftCard(shift, sKey, ns){
   // body
   const body = el('div','shift-body');
   body.appendChild(buildSlot(ns, sKey, 1, saved.n1||'', !!saved.approved1));
-  // second slot only on setup board
-  if(ns === 'setup') body.appendChild(buildSlot(ns, sKey, 2, saved.n2||'', !!saved.approved2));
+  // second slot only for shifts that actually need two people
+  if(shift.twoSlots) body.appendChild(buildSlot(ns, sKey, 2, saved.n2||'', !!saved.approved2));
   card.appendChild(body);
   return card;
 }
