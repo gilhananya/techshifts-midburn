@@ -116,6 +116,14 @@ main{padding:18px;max-width:1600px;margin:0 auto}
 .setup   .shift-hdr{background:var(--setup-t);color:var(--setup)}
 .setup2  .shift-hdr{background:linear-gradient(90deg,#005f56,#00897b);color:#fff}
 
+/* ══ LAPTOPS BOARD ═══════════════════════════════════ */
+.laptops-list{display:flex;flex-direction:column;gap:10px;max-width:640px}
+.laptop-row{
+  background:var(--card);border-radius:var(--radius);padding:12px;
+  box-shadow:var(--shadow);display:flex;gap:12px;flex-wrap:wrap
+}
+.laptop-field{flex:1 1 200px;min-width:180px}
+
 /* ══ SLOT ════════════════════════════════════════════ */
 .slot{background:#f8f6f0;border-radius:10px;padding:9px;border:1.5px solid var(--border);transition:border-color .18s}
 .slot-label{font-size:.65rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px}

@@ -55,6 +55,8 @@
   <nav class="tabs">
     <button class="tab active" onclick="switchTab('regular',this)">📅 משמרות (3–7.11)</button>
     <button class="tab"        onclick="switchTab('setup',this)">🔧 הקמות (28.10–3.11)</button>
+    <button class="tab"        onclick="switchTab('laptops',this)">💻 לפטופים</button>
+    <button class="tab"        onclick="switchTab('passwords',this)">🔐 סיסמאות ועניינים טכניים</button>
   </nav>
 </header>
 
@@ -124,6 +126,27 @@
     <div class="stats-wrap" id="stats-wrap-setup" style="display:none">
       <div class="stats-hdr">📊 מיפוי ברנרים – הקמות</div>
       <div class="stats-grid" id="stats-setup"></div>
+    </div>
+  </div>
+
+  <!-- ── LAPTOPS BOARD ───────────────────────────── -->
+  <div id="board-laptops" class="board">
+    <div class="board-meta">
+      <div>
+        <div class="board-title">מעקב לפטופים</div>
+        <div class="board-subtitle">שיוך לפטופים למחלקות</div>
+      </div>
+    </div>
+    <div id="laptops-list" class="laptops-list"></div>
+  </div>
+
+  <!-- ── PASSWORDS / TECH BOARD (placeholder) ────── -->
+  <div id="board-passwords" class="board">
+    <div class="board-meta">
+      <div>
+        <div class="board-title">סיסמאות ועניינים טכניים</div>
+        <div class="board-subtitle">התוכן יתווסף בהמשך</div>
+      </div>
     </div>
   </div>
 </main>

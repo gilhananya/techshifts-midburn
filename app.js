@@ -96,13 +96,36 @@ const SETUP_DAYS = [
 ];
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// LAPTOPS
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+const LAPTOP_COUNT = 9;
+function laptopLabel(n){ return `לפטופ ${n} - ${n<=5?'מק':'ווינדוס'}`; }
+const LAPTOP_NAMES = Array.from({length:LAPTOP_COUNT}, (_,i)=>laptopLabel(i+1));
+const DEPARTMENTS = ['חב״ק','גייט','תנועה','מגדלור','הנדסה'];
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // STATE
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-let S = {regular:{}, setup:{}};
+// Single source of truth for S's top-level branches — add a new one here only,
+// so the initial state and every Firebase resync stay in sync automatically.
+const NAMESPACES = ['regular', 'setup', 'laptops'];
+function emptyState(){ const s={}; NAMESPACES.forEach(ns=>s[ns]={}); return s; }
+let S = emptyState();
 let isAdmin = false;
 
 function loadState(){
-  try{ const d=localStorage.getItem('techshifts26'); if(d) S=JSON.parse(d); }catch(e){}
+  try{
+    const d=localStorage.getItem('techshifts26');
+    if(d){
+      // merge onto emptyState() rather than replacing S outright, so a
+      // namespace added after this data was saved (e.g. "laptops") defaults
+      // to {} instead of being missing entirely
+      const parsed=JSON.parse(d);
+      const merged=emptyState();
+      NAMESPACES.forEach(ns=>{ if(parsed[ns]) merged[ns]=parsed[ns]; });
+      S=merged;
+    }
+  }catch(e){}
   try{ if(localStorage.getItem('techshifts26_adm')===ADMIN_PASSWORD) isAdmin=true; }catch(e){}
 }
 function persist(){
@@ -131,7 +154,9 @@ window.addEventListener('techshifts-fb-ready', (e) => {
     // branch nobody has touched yet (e.g. "setup") both come back missing, not
     // as {}. Always resync to the remote value (defaulting missing branches to
     // {}) so every connected device reflects reality, including a Clear All.
-    S = {regular: (remote && remote.regular) || {}, setup: (remote && remote.setup) || {}};
+    const next = emptyState();
+    NAMESPACES.forEach(ns => { if(remote && remote[ns]) next[ns] = remote[ns]; });
+    S = next;
     persist();
     buildAll();
   });
@@ -230,6 +255,7 @@ document.getElementById('adminModal').addEventListener('click', function(e){ if(
 function buildAll(){
   buildRegularBoard();
   buildSetupBoard();
+  buildLaptopsBoard();
   renderStats('regular');
   renderStats('setup');
   buildDots('regular', REGULAR_DAYS.length);
@@ -268,6 +294,67 @@ function buildSetupBoard(){
     });
     container.appendChild(col);
   });
+}
+
+function buildLaptopsBoard(){
+  const container = document.getElementById('laptops-list');
+  if(!container) return;
+  container.innerHTML = '';
+  for(let i=0;i<LAPTOP_COUNT;i++){
+    container.appendChild(buildLaptopRow(`l_${i}`));
+  }
+}
+
+function buildLaptopRow(lKey){
+  const saved = S.laptops[lKey] || {};
+  const row = el('div','laptop-row');
+
+  const nameField = buildLaptopField('שם לפטופ', LAPTOP_NAMES, saved.name||'', (val)=>{
+    ensureKey('laptops', lKey);
+    S.laptops[lKey].name = val;
+    persist();
+    fbWrite(`laptops/${lKey}/name`, val);
+  });
+  row.appendChild(nameField);
+
+  const deptField = buildLaptopField('מחלקה', DEPARTMENTS, saved.dept||'', (val)=>{
+    ensureKey('laptops', lKey);
+    S.laptops[lKey].dept = val;
+    persist();
+    fbWrite(`laptops/${lKey}/dept`, val);
+  });
+  row.appendChild(deptField);
+
+  return row;
+}
+
+function buildLaptopField(labelText, options, savedValue, onChange){
+  const field = el('div','laptop-field');
+  const lbl = el('div','slot-label'); lbl.textContent = labelText;
+  field.appendChild(lbl);
+
+  const sel = el('select','name-sel');
+  if(savedValue) sel.classList.add('filled');
+  sel.disabled = REVIEW_MODE;
+
+  const emptyOpt = document.createElement('option');
+  emptyOpt.value=''; emptyOpt.textContent='— בחר/י —';
+  sel.appendChild(emptyOpt);
+  options.forEach(opt=>{
+    const o = document.createElement('option');
+    o.value = opt; o.textContent = opt;
+    if(opt===savedValue) o.selected = true;
+    sel.appendChild(o);
+  });
+  field.appendChild(sel);
+
+  if(!REVIEW_MODE){
+    sel.addEventListener('change', ()=>{
+      sel.classList.toggle('filled', !!sel.value);
+      onChange(sel.value);
+    });
+  }
+  return field;
 }
 
 function dayHeader(label, date){
@@ -464,7 +551,7 @@ function renderStats(ns){
 function clearAll(){
   if(REVIEW_MODE || !isAdmin) return;
   if(!confirm('למחוק את כל שיבוצי האבק? פעולה זו בלתי הפיכה.')) return;
-  S={regular:{},setup:{}}; persist(); buildAll();
+  S.regular={}; S.setup={}; persist(); buildAll(); // laptops/passwords data is untouched
   if(fb){
     fb.set(fb.stateRef, S).catch((err)=>{
       console.warn('clear all sync failed', err);
