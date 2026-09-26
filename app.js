@@ -51,6 +51,15 @@ const REGULAR_SHIFTS = [
   {key:'morning',label:'בוקר', time:'08:00 – 16:00',icon:'☀️',cls:'morning'},
   {key:'evening',label:'ערב',  time:'16:00 – 24:00',icon:'🌆',cls:'evening'},
 ];
+// Specific (day, shift) combos on the regular board that need a second person —
+// keyed by sKey (r_<dayIndex>_<shiftIndex>), since REGULAR_SHIFTS is shared
+// across all days and most shifts only need one person.
+const REGULAR_TWO_SLOTS = new Set([
+  'r_0_0', // יום שלישי — לילה
+  'r_0_1', // יום שלישי — בוקר
+  'r_1_1', // יום רביעי — בוקר
+  'r_2_1', // יום חמישי — בוקר
+]);
 
 // Each setup day can have its own shifts array
 const SETUP_DAYS = [
@@ -273,7 +282,7 @@ function buildShiftCard(shift, sKey, ns){
   const body = el('div','shift-body');
   body.appendChild(buildSlot(ns, sKey, 1, saved.n1||'', !!saved.approved1));
   // second slot only for shifts that actually need two people
-  if(shift.twoSlots) body.appendChild(buildSlot(ns, sKey, 2, saved.n2||'', !!saved.approved2));
+  if(shift.twoSlots || REGULAR_TWO_SLOTS.has(sKey)) body.appendChild(buildSlot(ns, sKey, 2, saved.n2||'', !!saved.approved2));
   card.appendChild(body);
   return card;
 }
@@ -495,21 +504,25 @@ function buildCalendar(ns){
         const sKey=`r_${di}_${si}`;
         const saved=S.regular[sKey]||{};
         const cell=el('div',`cal-cell ${bgMap[shift.key]||''}`);
-        if(saved.n1){
-          const c=el('div',`cal-chip${saved.approved1?' confirmed':''}`);
-          const nameLine=el('div','cal-chip-name');
-          nameLine.textContent=saved.n1+(saved.approved1?' ✓':'');
-          c.appendChild(nameLine);
-          const person=PEOPLE.find(x=>x.name===saved.n1);
-          if(person){
-            const detail=el('div','cal-chip-detail');
-            detail.textContent=`${person.phone||''} · ${person.camp||'—'}`;
-            c.appendChild(detail);
+        let filled=false;
+        ['n1','n2'].forEach(nk=>{
+          if(saved[nk]){
+            filled=true;
+            const apKey = nk==='n1' ? 'approved1' : 'approved2';
+            const c=el('div',`cal-chip${saved[apKey]?' confirmed':''}`);
+            const nameLine=el('div','cal-chip-name');
+            nameLine.textContent=saved[nk]+(saved[apKey]?' ✓':'');
+            c.appendChild(nameLine);
+            const person=PEOPLE.find(x=>x.name===saved[nk]);
+            if(person){
+              const detail=el('div','cal-chip-detail');
+              detail.textContent=`${person.phone||''} · ${person.camp||'—'}`;
+              c.appendChild(detail);
+            }
+            cell.appendChild(c);
           }
-          cell.appendChild(c);
-        } else {
-          const empty=el('div','cal-empty'); empty.textContent='—'; cell.appendChild(empty);
-        }
+        });
+        if(!filled){ const empty=el('div','cal-empty'); empty.textContent='—'; cell.appendChild(empty); }
         grid.appendChild(cell);
       });
     });
@@ -636,9 +649,12 @@ function buildOfflineHTML(){
   const regRows = REGULAR_SHIFTS.map((shift,si)=>{
     const cells = REGULAR_DAYS.map((day,di)=>{
       const saved = S.regular[`r_${di}_${si}`] || {};
-      if(!saved.n1) return '<td class="empty">—</td>';
-      const {phone,camp} = personRow(saved.n1);
-      return `<td><div class="name">${esc(saved.n1)}${saved.approved1?' ✓':''}</div><div class="detail">${esc(phone)} · ${esc(camp)}</div></td>`;
+      const names = ['n1','n2'].filter(k=>saved[k]).map(k=>{
+        const {phone,camp} = personRow(saved[k]);
+        const apKey = k==='n1' ? 'approved1' : 'approved2';
+        return `<div class="name">${esc(saved[k])}${saved[apKey]?' ✓':''}</div><div class="detail">${esc(phone)} · ${esc(camp)}</div>`;
+      }).join('');
+      return names ? `<td>${names}</td>` : '<td class="empty">—</td>';
     }).join('');
     return `<tr><th>${shift.icon} ${esc(shift.label)}<br><span class="time">${esc(shift.time)}</span></th>${cells}</tr>`;
   }).join('');
