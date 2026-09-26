@@ -1,5 +1,5 @@
 // Service Worker — מאפשר שימוש מלא באפליקציה גם ללא קליטה/אינטרנט (חשוב מאוד במידברן).
-const CACHE_NAME = 'techshifts26-v2';
+const CACHE_NAME = 'techshifts26-v3';
 // Files that change with app updates — always check the network first so
 // visitors get the latest version while online; fall back to cache offline.
 const NETWORK_FIRST = ['./index.html', './style.css', './app.js'];
@@ -48,7 +48,11 @@ self.addEventListener('fetch', (event) => {
   if (isNetworkFirst) {
     const cacheKey = req.mode === 'navigate' ? './index.html' : req;
     event.respondWith(
-      fetch(req)
+      // 'reload' forces an actual network round-trip, bypassing the browser's
+      // own HTTP cache — GitHub Pages serves these with Cache-Control: max-age
+      // set, so a plain fetch() here could silently return a stale cached
+      // response instead of ever reaching the network.
+      fetch(req.url, {cache: 'reload'})
         .then((res) => {
           caches.open(CACHE_NAME).then((cache) => cache.put(cacheKey, res.clone()));
           return res;
