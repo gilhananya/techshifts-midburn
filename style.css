@@ -53,6 +53,14 @@ body{font-family:"Heebo",Arial,sans-serif;background:var(--bg);color:var(--text)
 .ready-cta{background:#fff;color:#00695c;border-color:#fff;font-weight:800}
 .ready-cta:hover{background:#fff8ee}
 
+.review-banner{
+  display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;
+  background:linear-gradient(90deg,#3a4a6e,#252545);color:#fff;
+  padding:10px 18px;text-align:center;font-size:.82rem;font-weight:500;
+  box-shadow:0 2px 14px rgba(0,0,0,.15)
+}
+.review-banner b{font-weight:900}
+
 /* ══ TABS ════════════════════════════════════════════ */
 .tabs{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none}
 .tabs::-webkit-scrollbar{display:none}
@@ -327,7 +335,7 @@ main{padding:18px;max-width:1600px;margin:0 auto}
 /* ══ PRINT ═══════════════════════════════════════════ */
 @media print{
   .hdr{position:static;box-shadow:none}
-  .hdr-right,.tabs,.modal-overlay,.swipe-hint,.ready-banner{display:none!important}
+  .hdr-right,.tabs,.modal-overlay,.swipe-hint,.ready-banner,.review-banner{display:none!important}
   .scroll{flex-wrap:wrap;overflow:visible}
   .day-col{flex:0 0 calc(33% - 10px)}
   .board{display:block!important}

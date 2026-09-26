@@ -3,6 +3,10 @@
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 const ADMIN_PASSWORD = 'techshifts2026';  // << שנה לפי רצונך
 
+// Add ?review=1 to the URL to share a view-only link — same live data and
+// design, but nothing can be edited (no admin login, no shift changes).
+const REVIEW_MODE = new URLSearchParams(location.search).get('review') === '1';
+
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // PEOPLE
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -134,6 +138,7 @@ window.addEventListener('techshifts-fb-ready', (e) => {
 });
 
 function fbWrite(path, value){
+  if (REVIEW_MODE) return; // belt-and-suspenders — buildSlot already blocks all edit paths
   if (!fb) { pendingSyncs.push(()=>fbWrite(path, value)); return; }
   fb.set(fb.ref(fb.db, 'state/' + path), value).catch((err)=>console.warn('sync write failed', err));
 }
@@ -143,6 +148,7 @@ function fbWrite(path, value){
 // slot from each other: if someone else already changed it since `prevName`
 // was last seen, the transaction aborts (unless isAdmin, which always wins).
 function fbClaimName(ns, sKey, nameKey, approvedKey, prevName, newName){
+  if (REVIEW_MODE) return; // belt-and-suspenders — buildSlot already blocks all edit paths
   if (!fb) { pendingSyncs.push(()=>fbClaimName(ns, sKey, nameKey, approvedKey, prevName, newName)); return; }
   const shiftRef = fb.ref(fb.db, `state/${ns}/${sKey}`);
   fb.runTransaction(shiftRef, (current) => {
@@ -164,6 +170,7 @@ function fbClaimName(ns, sKey, nameKey, approvedKey, prevName, newName){
 // ADMIN
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 function openAdminModal(){
+  if(REVIEW_MODE) return;
   if(isAdmin){ logoutAdmin(); return; }
   document.getElementById('adminPwd').value='';
   document.getElementById('adminErr').textContent='';
@@ -295,8 +302,9 @@ function buildSlot(ns, sKey, num, savedName, savedApproved){
   lbl.textContent = num===1 ? 'משובצ/ת' : 'משובצ/ת נוסף/ת';
   slot.appendChild(lbl);
 
-  // Permission: locked only once the person has confirmed it's final (or admin unlocked it)
-  let isLocked = !isAdmin && !!savedName && savedApproved;
+  // Permission: locked only once the person has confirmed it's final (or admin unlocked it).
+  // In review mode everything is permanently locked — no admin bypass either.
+  let isLocked = REVIEW_MODE || (!isAdmin && !!savedName && savedApproved);
 
   const sel = el('select','name-sel');
   if(savedName) sel.classList.add('filled');
@@ -314,7 +322,7 @@ function buildSlot(ns, sKey, num, savedName, savedApproved){
   slot.appendChild(sel);
 
   const lockNote = el('div','lock-note');
-  lockNote.textContent = '🔒 נעול · לשינוי פנה/י לממונה/ת';
+  lockNote.textContent = REVIEW_MODE ? '👀 מצב תצוגה בלבד' : '🔒 נעול · לשינוי פנה/י לממונה/ת';
   lockNote.style.display = isLocked ? '' : 'none';
   slot.appendChild(lockNote);
 
@@ -454,7 +462,7 @@ function renderStats(ns){
 // ACTIONS
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 function clearAll(){
-  if(!isAdmin) return;
+  if(REVIEW_MODE || !isAdmin) return;
   if(!confirm('למחוק את כל שיבוצי האבק? פעולה זו בלתי הפיכה.')) return;
   S={regular:{},setup:{}}; persist(); buildAll();
   if(fb){
@@ -739,6 +747,10 @@ function downloadOfflineSnapshot(){
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 function el(tag,cls){ const e=document.createElement(tag); e.className=cls; return e; }
 
+if(REVIEW_MODE){
+  document.getElementById('adminBtn').style.display = 'none';
+  document.getElementById('reviewBanner').style.display = '';
+}
 loadState();
 updateAdminUI();
 buildAll();
